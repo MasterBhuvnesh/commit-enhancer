@@ -1,0 +1,29 @@
+{
+  "name": "commit-enhancer",
+  "version": "1.0.0",
+  "description": "A CLI tool that uses Google Gemini to enhance your Git commit messages.",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "commit-enhancer": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "gemini",
+    "conventional-commits",
+    "cli"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "chalk": "^4.1.2",
+    "execa": "^5.1.1",
+    "inquirer": "^8.2.4"
+  }
+}
