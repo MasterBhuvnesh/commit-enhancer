@@ -1,72 +1,42 @@
-import { execa } from "execa";
-import axios from "axios";
+/**
+ * @file This file orchestrates the main workflow of the commit-enhancer tool.
+ * It coordinates calls to the git, gemini, and ui modules to guide the user
+ * from pre-flight checks to the final commit.
+ */
+
 import chalk from "chalk";
-import inquirer from "inquirer";
+import * as git from "./services/git.js";
+import * as gemini from "./services/gemini.js";
+import * as ui from "./ui.js";
 
-// --- Helper Functions ---
-
-const getApiKey = async () => {
-  try {
-    const { stdout } = await execa("git", ["config", "gemini.apikey"]);
-    return stdout;
-  } catch (error) {
-    console.error(chalk.red("Error: Gemini API key not found in Git config."));
-    console.log(
-      chalk.yellow("\nPlease set it for this repository by running:")
-    );
-    console.log(
-      chalk.cyan('  git config --local gemini.apikey "YOUR_API_KEY_HERE"')
-    );
-    return null;
-  }
-};
-
-const getStagedDiff = async () => {
-  try {
-    const { stdout } = await execa("git", ["diff", "--staged", "--stat"]);
-    return stdout
-      ? `Staged file changes:\n\`\`\`\n${stdout}\n\`\`\``
-      : "No staged file changes detected.";
-  } catch (error) {
-    return "Could not retrieve staged file changes.";
-  }
-};
-
-const getCommitSuggestion = async (apiKey, prompt) => {
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  try {
-    const response = await axios.post(API_URL, {
-      contents: [{ parts: [{ text: prompt }] }],
-    });
-    let suggestion =
-      response.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    // Clean up markdown backticks
-    return suggestion.trim().replace(/^`+|`+$/g, "");
-  } catch (error) {
-    console.error(chalk.red("Error calling Gemini API:"));
-    console.error(error.response?.data || error.message);
-    return null;
-  }
-};
-
-// --- Main Workflow ---
-
+/**
+ * Runs the entire commit enhancement workflow from start to finish.
+ * @param {string} initialMessage - The commit message passed directly via command line.
+ * @param {boolean} autoConfirm - A flag to automatically accept the first AI suggestion.
+ */
 export const runCommitWorkflow = async (initialMessage, autoConfirm) => {
-  const apiKey = await getApiKey();
-  if (!apiKey) return;
+  // 1. Perform environment and Git repository checks.
+  if (!(await git.preflightChecks())) return;
 
+  // 2. Get the API key, prompting the user if it's not found.
+  let apiKey = await git.getApiKey();
+  if (!apiKey) {
+    apiKey = await ui.promptForApiKey();
+    if (!apiKey) return; // User cancelled the API key prompt.
+    const shouldSave = await ui.promptToSaveApiKey();
+    if (shouldSave) {
+      await git.saveApiKey(apiKey);
+    }
+  }
+
+  // 3. Ensure there are changes to be committed, prompting to stage if necessary.
+  if (!(await git.handleStaging())) return;
+
+  // 4. Get the user's initial commit intent.
   let rawCommit = initialMessage;
   if (!rawCommit) {
-    const answers = await inquirer.prompt([
-      {
-        type: "input",
-        name: "rawCommit",
-        message: "Enter your raw commit message:",
-      },
-    ]);
-    rawCommit = answers.rawCommit;
+    rawCommit = await ui.promptForInitialCommit();
   }
-
   if (!rawCommit) {
     console.log("No commit message entered. Exiting.");
     return;
@@ -74,68 +44,43 @@ export const runCommitWorkflow = async (initialMessage, autoConfirm) => {
 
   let currentSuggestion = "";
 
+  // 5. Start the suggestion and rewrite loop.
   while (true) {
-    const diffContext = await getStagedDiff();
-    const prompt = `You are an expert Git commit message writer. Generate a professional commit message in the Conventional Commits standard based on the user's intent and the staged file changes. The user's intent is: "${rawCommit}".\n\n${diffContext}\n\nReturn only the single-line, formatted commit message and nothing else.`;
+    const diffContext = await git.getStagedDiff();
+    const prompt = gemini.constructPrompt(rawCommit, diffContext);
 
     console.log(chalk.yellow("\n🤔 Thinking..."));
-    currentSuggestion = await getCommitSuggestion(apiKey, prompt);
+    currentSuggestion = await gemini.getCommitSuggestion(apiKey, prompt);
 
     if (!currentSuggestion) {
       console.log(chalk.red("Could not get a suggestion. Please try again."));
       return;
     }
 
-    console.log(chalk.cyan("\nGemini's suggestion:"));
-    console.log("----------------------------------------");
-    console.log(chalk.green(currentSuggestion));
-    console.log("----------------------------------------");
+    ui.displaySuggestion(currentSuggestion);
 
+    // If in auto-confirm mode, break the loop and commit immediately.
     if (autoConfirm) {
       break;
     }
 
-    const { action } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "action",
-        message: "What do you want to do?",
-        choices: [
-          { name: "✅ Commit with this message", value: "commit" },
-          { name: "🔄 Rewrite the message", value: "rewrite" },
-          { name: "❌ Cancel commit", value: "cancel" },
-        ],
-      },
-    ]);
+    // 6. Ask the user for the next action (commit, rewrite, or cancel).
+    const action = await ui.promptForAction();
 
-    if (action === "commit") {
-      break;
-    }
+    if (action === "commit") break;
     if (action === "cancel") {
       console.log("Commit cancelled.");
       return;
     }
     if (action === "rewrite") {
-      const { rewriteHint } = await inquirer.prompt([
-        {
-          type: "input",
-          name: "rewriteHint",
-          message:
-            'How should I rewrite it? (e.g., "make it more concise") [optional]:',
-        },
-      ]);
+      const rewriteHint = await ui.promptForRewriteHint();
+      // Prepare the next prompt for the AI, asking it to rewrite the message.
       rawCommit = `Rewrite the following commit message${
         rewriteHint ? ` to be ${rewriteHint}` : ""
       }: "${currentSuggestion}"`;
     }
   }
 
-  // Perform the commit
-  try {
-    await execa("git", ["commit", "-m", currentSuggestion]);
-    console.log(chalk.green("\n✅ Commit successful!"));
-  } catch (error) {
-    console.error(chalk.red("Error executing git commit:"));
-    console.error(error.stderr || error.message);
-  }
+  // 7. Perform the final git commit.
+  await git.performCommit(currentSuggestion);
 };
