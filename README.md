@@ -99,3 +99,13 @@ The `-y` flag will accept the first suggestion from the AI and commit it immedia
 ## License
 
 This project is licensed under the ISC License.
+
+## Scripts
+
+Add the following to your `package.json` under the `"scripts"` section to enable testing:
+
+```json
+"scripts": {
+    "test": "node ./scripts/test-runner.js"
+}
+```

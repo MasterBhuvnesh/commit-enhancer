@@ -14,8 +14,7 @@
     "services/"
   ],
   "scripts": {
-    "start": "node ./index.js",
-    "test": "node ./scripts/test-runner.js"
+    "start": "node ./index.js"
   },
   "repository": {
     "type": "git",
