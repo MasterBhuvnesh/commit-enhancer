@@ -1,9 +1,3 @@
-/**
- * @file This script runs an automated, end-to-end test for the commit-enhancer CLI.
- * It simulates a user workflow by creating a file, running the enhancer non-interactively,
- * verifying the result, and cleaning up afterwards.
- */
-
 import execa from "execa";
 import chalk from "chalk";
 
@@ -14,6 +8,16 @@ const run = async () => {
   console.log(chalk.blue.bold("--- E2E Test Report for commit-enhancer ---\n"));
   const originalHead = await getHead();
   const initialTestMessage = "chore: update test file with new timestamp";
+
+  // In a CI environment, the API key must be set as an environment variable.
+  if (process.env.CI && !process.env.GEMINI_API_KEY) {
+    console.error(
+      chalk.red(
+        "Error: GEMINI_API_KEY environment variable not set in CI environment."
+      )
+    );
+    process.exit(1);
+  }
 
   try {
     // --- Step 1: Create a file change ---
@@ -30,11 +34,19 @@ const run = async () => {
     console.log(
       chalk.cyan("3. Running `commit-enhancer` in auto-confirm mode...")
     );
-    const enhancerPromise = execa("node", [
-      "./index.js",
-      "-y", // Auto-confirm flag
-      initialTestMessage, // Pass the initial test message
-    ]);
+    const enhancerPromise = execa(
+      "node",
+      [
+        "./index.js",
+        "-y", // Auto-confirm flag
+        initialTestMessage, // Pass the initial test message
+      ],
+      {
+        // FIX: Pass parent process environment variables to the child process.
+        // This ensures the GEMINI_API_KEY from GitHub Secrets is available to the tool.
+        env: process.env,
+      }
+    );
 
     // Pipe the output of the enhancer to our console in real-time
     enhancerPromise.stdout.pipe(process.stdout);

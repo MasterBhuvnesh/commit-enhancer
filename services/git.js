@@ -54,17 +54,10 @@ export const preflightChecks = async () => {
 };
 
 /**
- * Retrieves the Gemini API key. It prioritizes environment variables for CI environments,
- * then falls back to local Git configuration.
+ * Retrieves the Gemini API key from the local Git configuration.
  * @returns {Promise<string|null>} The API key if found, otherwise null.
  */
 export const getApiKey = async () => {
-  // Priority 1: Check for environment variable (ideal for CI/CD)
-  if (process.env.GEMINI_API_KEY) {
-    return process.env.GEMINI_API_KEY;
-  }
-
-  // Priority 2: Check local git config (for local development)
   try {
     const { stdout } = await execa("git", ["config", "gemini.apikey"]);
     return stdout || null;
