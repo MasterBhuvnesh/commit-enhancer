@@ -1,6 +1,6 @@
 {
   "name": "commit-enhancer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A CLI tool that uses the Google Gemini API to supercharge your Git commit workflow, providing AI-powered, context-aware suggestions.",
   "main": "index.js",
   "type": "module",
