@@ -41,11 +41,11 @@ export const preflightChecks = async () => {
         try {
           // Check if we're on master and rename to main
           const { stdout: currentBranch } = await execa("git", [
-            "rev-parse",
-            "--abbrev-ref",
+            "symbolic-ref",
+            "--short",
             "HEAD",
           ]);
-          if (currentBranch === "master") {
+          if (currentBranch && currentBranch === "master") {
             await execa("git", ["branch", "-m", "master", "main"]);
             console.log(
               chalk.green(
