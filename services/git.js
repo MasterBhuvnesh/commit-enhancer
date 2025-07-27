@@ -59,6 +59,10 @@ export const preflightChecks = async () => {
           }
         } catch (branchError) {
           // If branch operations fail, that's okay - the repo is still initialized
+          console.error(
+            chalk.red("Warning: Branch operation failed. The repository was initialized, but the branch could not be renamed.")
+          );
+          console.error(chalk.yellow(`Details: ${branchError.message}`));
           console.log(
             chalk.green("Successfully initialized a new Git repository.")
           );
