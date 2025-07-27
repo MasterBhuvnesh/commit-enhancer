@@ -28,8 +28,23 @@ export const preflightChecks = async () => {
     const shouldInit = await ui.promptToInitRepo();
     if (shouldInit) {
       await execa("git", ["init"]);
+      
+      // Set the default branch to 'main' to match modern Git conventions
+      // and ensure compatibility with remote repositories that use 'main'
+      try {
+        await execa("git", ["branch", "-m", "master", "main"]);
+      } catch (branchError) {
+        // If renaming fails (e.g., no commits yet), we'll set it up later
+        // The branch will be created as 'main' when the first commit is made
+        try {
+          await execa("git", ["config", "init.defaultBranch", "main"]);
+        } catch (configError) {
+          // Fallback: this is a very old Git version, continue with master
+        }
+      }
+      
       console.log(
-        chalk.green("Successfully initialized a new Git repository.")
+        chalk.green("Successfully initialized a new Git repository with 'main' as the default branch.")
       );
     } else {
       console.log(chalk.red("Operation cancelled."));
