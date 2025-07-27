@@ -27,10 +27,43 @@ export const preflightChecks = async () => {
   } catch (error) {
     const shouldInit = await ui.promptToInitRepo();
     if (shouldInit) {
-      await execa("git", ["init"]);
-      console.log(
-        chalk.green("Successfully initialized a new Git repository.")
-      );
+      try {
+        // Try to initialize git repository with 'main' as the default branch (Git 2.28+)
+        await execa("git", ["init", "--initial-branch=main"]);
+        console.log(
+          chalk.green(
+            "Successfully initialized a new Git repository with 'main' as the default branch."
+          )
+        );
+      } catch (initError) {
+        // Fallback for older Git versions
+        await execa("git", ["init"]);
+        try {
+          // Check if we're on master and rename to main
+          const { stdout: currentBranch } = await execa("git", [
+            "rev-parse",
+            "--abbrev-ref",
+            "HEAD",
+          ]);
+          if (currentBranch === "master") {
+            await execa("git", ["branch", "-m", "master", "main"]);
+            console.log(
+              chalk.green(
+                "Successfully initialized a new Git repository and renamed default branch to 'main'."
+              )
+            );
+          } else {
+            console.log(
+              chalk.green("Successfully initialized a new Git repository.")
+            );
+          }
+        } catch (branchError) {
+          // If branch operations fail, that's okay - the repo is still initialized
+          console.log(
+            chalk.green("Successfully initialized a new Git repository.")
+          );
+        }
+      }
     } else {
       console.log(chalk.red("Operation cancelled."));
       return false;

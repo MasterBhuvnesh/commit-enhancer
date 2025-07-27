@@ -16,7 +16,7 @@
 - ✨ **Smart Staging Assistant:**
   - Detects if you've forgotten to stage your changes and prompts you to add them (`git add .`).
   - Correctly handles untracked files in newly created repositories.
-- 🚀 **Automatic Git Initialization:** If you run the tool in a directory that isn't a Git repository, it will offer to initialize one for you (`git init`).
+- 🚀 **Automatic Git Initialization:** If you run the tool in a directory that isn't a Git repository, it will offer to initialize one for you (`git init`) with `main` as the default branch.
 - 🔑 **Secure & Simple API Key Handling:**
   - Securely reads your API key from your project's local Git configuration.
   - If the key is missing, it prompts you to enter it for the current session and offers to save it for future use.
@@ -87,7 +87,7 @@ The `-y` flag will accept the first suggestion from the AI and commit it immedia
 
 **commit-enhancer** automates several common Git tasks to streamline your workflow:
 
-- `git init`: Initializes a new repository if run in a directory that is not already a Git repo.
+- `git init`: Initializes a new repository if run in a directory that is not already a Git repo, with `main` as the default branch.
 - `git status`: Checks for merge conflicts and unstaged/untracked files.
 - `git add .`: Stages all unstaged changes and untracked files upon user confirmation.
 - `git diff --staged`: Gathers context about your changes to send to the AI.
